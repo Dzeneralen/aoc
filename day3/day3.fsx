@@ -3,67 +3,73 @@ open System.IO
 let lines = File.ReadAllLines("./day3/input.txt")
 
 // PART 1
-let getCoordinatesForAreaAround x y =
-    //   xxx
-    //   xxx
-    //   xxx
-    [
-        x,y // center
-        x+1,y // right
-        x+1,y+1 // upper right corner
-        x,y+1 // up
-        x-1,y+1 // upper left corner
-        x-1,y; // left
-        x-1,y-1; // lower left corner
-        x,y-1; // down
-        x+1,y-1; // lower right corner
-    ]
 
-let findMachineParts (input: string[]) =
-    let mutable acceptedNumbers = []
-    let mutable accumulator = ""
-    let mutable included = false
+type Number = { Value: string; Row: int; Range: int * int }
+type Entry = { Value: string; X: int; Y: int }
 
-    // row index i, column index j
-    let rowCount, colCount = Array.length input, input[0].Length
-
-    for i = 0 to rowCount - 1 do
-        for j = 0 to colCount - 1 do
-            let c = input[i][j]
+let getEntriesFor predicate lines =
+    lines
+    |> Array.mapi (fun rowIndex column ->
+        column
+        |> Seq.mapi (fun colIndex char -> { Value = string char; X = rowIndex; Y = colIndex })
+        |> Seq.toArray
+        )
+    |> Array.concat
+    |> Array.filter predicate
+    
+let getNumbersFromLine (row: int) (line: string) =
+    let mutable num = ""
+    let mutable start = -1
+    let mutable numbers = []
+    for i = 0 to line.Length - 1 do
+        let c = line[i]
+        if Char.IsDigit c then
+            if start = -1 then start <- i
+            num <- num + string c
+        else
+            if num <> "" then
+                numbers <- { Value = num; Row = row; Range = start, i - 1 } :: numbers
             
-            if Char.IsDigit c then
-                accumulator <- accumulator + string c
-                
-                if not included then
-                    let validCoords =
-                        getCoordinatesForAreaAround i j
-                        |> List.filter (fun (x, _) -> rowCount > x && x >= 0) 
-                        |> List.filter (fun (_, y) -> colCount > y && y >= 0)
-                    
-                    let hasAdjacentSymbol =
-                        validCoords
-                        |> List.exists (fun (x, y) ->
-                            let c = input[x][y]
-                            not (Char.IsDigit c || c = '.')
-                            )
-                        
-                    included <- hasAdjacentSymbol
-            else
-                if accumulator <> "" && included then
-                    acceptedNumbers <- accumulator :: acceptedNumbers
-                
-                accumulator <- ""
-                included <- false
+            num <- ""
+            start <- -1
     
-    if accumulator <> "" && included then
-        acceptedNumbers <- accumulator :: acceptedNumbers
+    if num <> "" then numbers <- { Value = num; Row = row; Range = start, line.Length - 1 } :: numbers
     
-    acceptedNumbers
+    numbers |> List.rev |> List.toArray  
 
+let findAdjacentNumbers nums gear =
+    nums
+    |> Array.filter (fun x ->
+        let xInside = x.Row + 1 >= gear.X && x.Row - 1 <= gear.X
+        let yInside = snd x.Range + 1 >= gear.Y && fst x.Range - 1 <= gear.Y
+        
+        xInside && yInside
+        )
+
+let notDotOrDigit = fun x -> x.Value <> "." && not (Char.IsDigit (char x.Value))
+let symbolEntries = getEntriesFor notDotOrDigit lines
+
+let numbers =
+    lines
+    |> Array.mapi getNumbersFromLine
+    |> Array.concat
 
 let result =
-    lines
-    |> findMachineParts 
-    |> List.rev
-    |> List.map int
-    |> List.sum
+    symbolEntries
+    |> Array.map (findAdjacentNumbers numbers)
+    |> Array.concat
+    |> Array.distinct
+    |> Array.map (fun x -> int x.Value)
+    |> Array.sum
+
+// PART 2
+let gears = getEntriesFor (fun x -> x.Value = "*") lines
+    
+let result2 =
+    gears
+    |> Array.map (findAdjacentNumbers numbers)
+    |> Array.filter (fun x -> x.Length = 2)
+    |> Array.map (fun x -> (int x[0].Value) * (int x[1].Value))
+    |> Array.sum
+
+  
