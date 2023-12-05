@@ -49,3 +49,24 @@ let result =
     |> Array.sum
     
 // PART 2
+let calculateActualScore game =
+    (Set.intersect game.WinningNumbers game.ActualNumbers).Count
+
+let play (acc: int array) (game: Game) =
+    let score = calculateActualScore game
+    let cardIndex = game.Number - 1
+    let start = cardIndex + 1
+    for i = start to cardIndex + score do
+        if i < acc.Length then
+            acc[i] <- (acc[i] + acc[cardIndex])
+    acc
+
+let result2 =
+    lines
+    |> Array.map parseLine
+    |> (fun games ->
+        let initialCards = Array.create games.Length 1
+        Array.fold play initialCards games
+        )
+    |> Array.sum
+
